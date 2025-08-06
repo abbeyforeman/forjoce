@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Interactive Video with Auto-Playing Terminal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: monospace;
+            overflow: hidden;
+            height: 100vh;
+            font-size: 25px;
+            background-color: #000;
+        }
+        
+        /* Video Background Styling */
+        #video-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            object-fit: cover;
+        }
+        
+        /* Play button styling */
+        #play-button {
+          font-family: monospace;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px 40px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 20px;
+            z-index: 1000;
+        }
+        
+        #play-button.hidden {
+            display: none;
+        }
+        
+        /* Interactive checkbox styling */
+        .interactive-checkbox {
+            position: absolute;
+/*             background-color: rgba(0, 0, 0, 0.7); */
+            padding: 10px;
+            border-radius: 5px;
+            color: #5fff87; /* Changed to match terminal text color */
+/*             border: 1px solid #333; */
+            display: none;
+            z-index: 900; /* Increased z-index to be higher than terminal */
+            font-size: 25px;
+            font-family: monospace; /* Match terminal font */
+            pointer-events: auto; /* Ensure clicks are captured */
+        }
+        
+        .interactive-checkbox input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin-right: 8px;
+            cursor: pointer;
+            position: relative;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-color: #000;
+/*             border: 1px solid #5fff87; */
+            border-radius: 3px;
+            outline: none;
+            z-index: 901; /* Ensure checkbox is clickable */
+            pointer-events: auto;
+        }
+        
+        .interactive-checkbox input[type="checkbox"]:checked {
+            background-color: #5fff87;
+        }
+        
+        .interactive-checkbox input[type="checkbox"]:checked:after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: ##5fff87;
+            font-size: 14px;
+        }
+        
+        /* Select dropdown styling */
+        .interactive-checkbox select {
+            background-color: #000;
+            color: #5fff87;
+/*             border: 1px solid #5fff87; */
+            padding: 5px;
+            border-radius: 3px;
+            font-family: monospace;
+            outline: none;
+            margin-left: 10px;
+            z-index: 901; /* Ensure select is clickable */
+            pointer-events: auto;
+        }
+        
+        .interactive-checkbox select option {
+            background-color: #000;
+            color: #5fff87;
+        }
+        
+        /* Toggle switch styling */
+        .toggle-switch {
+            position: absolute;
+/*             background-color: rgba(0, 0, 0, 0.7); */
+            padding: 15px;
+            border-radius: 5px;
+/*             border: 1px solid #333; */
+            color: #5fff87; /* Changed to match terminal text color */
+            display: none;
+            z-index: 900; /* Increased z-index to be higher than terminal */
+            font-size: 25px;
+            font-family: monospace; /* Match terminal font */
+            pointer-events: auto; /* Ensure clicks are captured */
+        }
+        
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+            margin-left: 10px;
+            z-index: 901; /* Ensure switch is clickable */
+            pointer-events: auto;
+        }
+        
+        .switch input { 
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #000;
+            border: 1px solid #5fff87;
+            -webkit-transition: .4s;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 3px;
+            bottom: 3px;
+            background-color: #5fff87;
+            -webkit-transition: .4s;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .slider {
+            background-color: #000;
+        }
+        
+        input:focus + .slider {
+            box-shadow: 0 0 1px #5fff87;
+        }
+        
+        input:checked + .slider:before {
+            -webkit-transform: translateX(26px);
+            -ms-transform: translateX(26px);
+            transform: translateX(26px);
+        }
+        
+        /* Positions for different items */
+        #vape-checkbox {
+            top: 40%;
+            left: 20%;
+        }
+        
+        #passport-checkbox {
+            top: 30%;
+            right: 20%;
+        }
+        
+        #wallet-checkbox {
+            bottom: 40%;
+            left: 20%;
+        }
+        
+        #jacket-checkbox {
+            top: 60%;
+            right: 30%;
+        }
+        
+        #earphones-checkbox {
+            bottom: 30%;
+            right: 40%;
+        }
+        
+        /* Terminal Container Styling - MODIFIED TO BE IN UPPER LEFT */
+        .terminal-container {
+            position: absolute;
+            top: 60px;
+            left: 20px;
+            width: 40%;
+            /* Removed background color as requested */
+            color: #5fff87;
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            z-index: 10; /* Lower z-index so it doesn't interfere with interactive elements */
+            pointer-events: none; /* Make terminal not capture clicks */
+        }
+        
+        #terminal {
+            height: 50vh; /* Increased height to 50% of viewport height */
+            overflow-y: auto;
+            padding: 5px;
+            font-size: 22px;
+            font-family: monospace;
+            pointer-events: none; /* Make terminal text not capture clicks */
+        }
+        
+        .prompt {
+            color: #6495ed;
+            margin-right: 5px;
+        }
+        
+        /* Changed response color to be different from input */
+        .response {
+            color: #ff9966; /* Orange color for responses */
+        }
+        
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        #terminal::-webkit-scrollbar {
+            display: none;
+        }
+        
+        /* Hide scrollbar for IE, Edge and Firefox */
+        #terminal {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+    </style>
+</head>
+<body>
+    <!-- Video Background -->
+    <video id="video-background">
+        <!-- Replace with your video file path -->
+        <source src="https://cdn.glitch.me/a093f6e5-0099-43a0-8a98-bac8fccb8c2a/Apartment%20Afternoon%20Scene.mp4?v=1745782107562" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+    
+    <!-- Play button -->
+    <button id="play-button">Click to Start</button>
+    
+    <!-- Terminal Container - Moved to upper left -->
+    <div class="terminal-container">
+        <div id="terminal"></div>
+    </div>
+    
+    <!-- Interactive Checkboxes -->
+    <div id="vape-checkbox" class="interactive-checkbox">
+        <label>
+            <input type="checkbox" id="vape-check"> Get the vape
+        </label>
+    </div>
+    
+    <div id="passport-checkbox" class="interactive-checkbox">
+        <label>
+            <input type="checkbox" id="passport-check"> Get the passport
+        </label>
+    </div>
+    
+    <div id="wallet-checkbox" class="interactive-checkbox">
+        <label>
+            <input type="checkbox" id="wallet-check"> Get the wallet
+        </label>
+    </div>
+    
+    <div id="jacket-checkbox" class="interactive-checkbox">
+        <label>
+            <input type="checkbox" id="jacket-check"> Get the jacket
+        </label>
+    </div>
+    
+    <div id="earphones-checkbox" class="interactive-checkbox">
+        <label>
+            <input type="checkbox" id="earphones-check"> Get the earphones
+        </label>
+    </div>
+    
+    <!-- Current Time Display (Useful for development) -->
+    <div id="time-display">0:00</div>
+
+    <script>
+        // Get elements
+        const video = document.getElementById('video-background');
+        const playButton = document.getElementById('play-button');
+        const timeDisplay = document.getElementById('time-display');
+        const terminal = document.getElementById('terminal');
+        
+        // Get all interactive checkboxes
+        const vapeCheckbox = document.getElementById('vape-checkbox');
+        const passportCheckbox = document.getElementById('passport-checkbox');
+        const walletCheckbox = document.getElementById('wallet-checkbox');
+        const jacketCheckbox = document.getElementById('jacket-checkbox');
+        const earphonesCheckbox = document.getElementById('earphones-checkbox');
+        
+        // Custom disappearing times for checkboxes (in milliseconds)
+        const checkboxDisappearTimes = {
+            'vape-check': 1000,        // Fast - 1 second
+            'passport-check': 3000,    // Medium - 3 seconds
+            'wallet-check': 2000,      // Medium - 2 seconds
+            'jacket-check': 3000,      // Slow - 3 seconds
+            'earphones-check': 5000,   // Very slow - 5 seconds
+            'escape-select': 4000,     // Slow - 4 seconds
+            'lamp-toggle': 2000,       // Medium - 2 seconds
+            'kitchen-toggle': 2000,    // Medium - 2 seconds
+            'final-choice-select': 4000 // Slow - 4 seconds
+        };
+        
+        // Script with auto-playing dialogue
+        const script = [
+            { command: 'what the fuck', response: 'it/s him. it has to be him', time: 27 },
+            { command: 'I need to get out', response: 'pack your bags', time: 28 },
+            { command: 'my passport', response: 'the table', time: 32 },
+            { command: 'my elfbar', response: 'the other table', time: 30 },
+            { command: 'my wallet too', response: 'I hate him I hate him I hate him', time: 33 },
+            { command: 'my bag', response: 'get the paloma it/s bigger', time: 35 },
+            { command: 'it/s so cold', response: 'get the puffer', time: 38 },
+            { command: 'wait don/t forget my earphones', response: 'I can/t believe this is happening', time: 42 },
+            { command: 'I should go from the fire escape', response: 'where will I go', time: 52 },
+            { command: 'whatever', response: 'whatever', time: 80 }
+        ];
+        
+        // Track script progress
+        let currentScriptIndex = 0;
+        
+        // Function to add a terminal line without typing effect - just instant display with delay
+        function addTerminalLine(text, isPrompt = false) {
+            return new Promise(resolve => {
+                const lineDiv = document.createElement('div');
+                lineDiv.style.pointerEvents = 'none'; // Ensure line doesn't capture clicks
+                
+                if (isPrompt) {
+                    // For command/input
+                    lineDiv.innerHTML = '<span class="prompt">char </span>' + text;
+                    terminal.appendChild(lineDiv);
+                    terminal.scrollTop = terminal.scrollHeight;
+                    resolve(); // Resolve immediately for prompt
+                } else {
+                    // For response - add a delay
+                    lineDiv.className = 'response';
+                    lineDiv.textContent = text;
+                    
+                    // Add a slight delay before showing the response
+                    setTimeout(() => {
+                        terminal.appendChild(lineDiv);
+                        terminal.scrollTop = terminal.scrollHeight;
+                        resolve();
+                    }, 800); // 800ms delay between input and response
+                }
+            });
+        }
+        
+        // Function to create and inject a new checkbox at a specific position
+        function createCheckboxAtPosition(id, label, left, top) {
+            // Create a new div element
+            const checkboxDiv = document.createElement('div');
+            checkboxDiv.id = id;
+            checkboxDiv.className = 'interactive-checkbox';
+            checkboxDiv.style.display = 'block';
+            
+            // Set position
+            if (left) checkboxDiv.style.left = left;
+            if (top) checkboxDiv.style.top = top;
+            
+            // Create the checkbox HTML
+            checkboxDiv.innerHTML = `
+                <label>
+                    <input type="checkbox" id="${id}-check"> ${label}
+                </label>
+            `;
+            
+            // Add to the document
+            document.body.appendChild(checkboxDiv);
+            
+            // Return the created element
+            return checkboxDiv;
+        }
+        
+        // Function to create and inject a dropdown at a specific position
+        function createDropdownAtPosition(id, label, options, left, top) {
+            // Create a new div element
+            const dropdownDiv = document.createElement('div');
+            dropdownDiv.id = id;
+            dropdownDiv.className = 'interactive-checkbox'; // Reuse the class for styling
+            dropdownDiv.style.display = 'block';
+            
+            // Set position
+            if (left) dropdownDiv.style.left = left;
+            if (top) dropdownDiv.style.top = top;
+            
+            // Create options HTML
+            let optionsHTML = '<option value="">Choose...</option>';
+            options.forEach(option => {
+                optionsHTML += `<option value="${option.value}">${option.label}</option>`;
+            });
+            
+            // Create the dropdown HTML
+            dropdownDiv.innerHTML = `
+                <label for="${id}-select">${label}</label>
+                <select id="${id}-select">
+                    ${optionsHTML}
+                </select>
+            `;
+            
+            // Add to the document
+            document.body.appendChild(dropdownDiv);
+            
+            // Return the created element
+            return dropdownDiv;
+        }
+        
+        // Function to create and inject a toggle switch at a specific position
+        function createToggleSwitchAtPosition(id, label, left, top, initialState = true) {
+            // Create a new div element
+            const toggleDiv = document.createElement('div');
+            toggleDiv.id = id;
+            toggleDiv.className = 'toggle-switch';
+            toggleDiv.style.display = 'block';
+            
+            // Set position
+            if (left) toggleDiv.style.left = left;
+            if (top) toggleDiv.style.top = top;
+            
+            // Create the toggle switch HTML
+            toggleDiv.innerHTML = `
+                <span>${label}</span>
+                <label class="switch">
+                    <input type="checkbox" id="${id}-toggle" ${initialState ? 'checked' : ''}>
+                    <span class="slider"></span>
+                </label>
+            `;
+            
+            // Add to the document
+            document.body.appendChild(toggleDiv);
+            
+            // Return the created element
+            return toggleDiv;
+        }
+        
+        // Play button click handler
+        playButton.addEventListener('click', function() {
+            // Play video with sound
+            video.play();
+            // Hide play button
+            playButton.classList.add('hidden');
+        });
+        
+        // Add checkbox event listeners
+        function addCheckboxListener(checkbox, checkId) {
+            const checkElement = document.getElementById(checkId);
+            if (checkElement) {
+                checkElement.addEventListener('change', function() {
+                    if (this.checked) {
+                        // Use custom disappear time from the object, or default to 1000ms
+                        const disappearTime = checkboxDisappearTimes[checkId] || 1000;
+                        
+                        // Hide checkbox after the custom delay
+                        setTimeout(() => {
+                            checkbox.style.display = 'none';
+                        }, disappearTime);
+                    }
+                });
+            }
+        }
+        
+        // Add listeners to checkboxes
+        addCheckboxListener(vapeCheckbox, 'vape-check');
+        addCheckboxListener(passportCheckbox, 'passport-check');
+        addCheckboxListener(walletCheckbox, 'wallet-check');
+        addCheckboxListener(jacketCheckbox, 'jacket-check');
+        addCheckboxListener(earphonesCheckbox, 'earphones-check');
+        
+        // Timecode events
+        const timeEvents = [
+            { 
+                time: 0, 
+                action: function() {
+                    // Hide all checkboxes at start
+                    vapeCheckbox.style.display = 'none';
+                    passportCheckbox.style.display = 'none';
+                    walletCheckbox.style.display = 'none';
+                    jacketCheckbox.style.display = 'none';
+                    earphonesCheckbox.style.display = 'none';
+                }
+            },
+            { 
+                time: 27, 
+                action: async function() {
+                    await addTerminalLine(script[0].command, true);
+                    await addTerminalLine(script[0].response, false);
+                    terminal.innerHTML += '<br>';
+                    currentScriptIndex = 1;
+                }
+            },
+            { 
+                time: 28, 
+                action: async function() {
+                    await addTerminalLine(script[1].command, true);
+                    await addTerminalLine(script[1].response, false);
+                    terminal.innerHTML += '<br>';
+                    currentScriptIndex = 2;
+                }
+            },
+            { 
+                time: 28, 
+                action: async function() {
+                    // Show vape checkbox
+                    vapeCheckbox.style.display = 'block';
+                    // Reset checkbox in case video replays
+                    document.getElementById('vape-check').checked = false;
+                    
+                    await addTerminalLine(script[3].command, true);
+                    await addTerminalLine(script[3].response, false);
+                    terminal.innerHTML += '<br>';
+                    currentScriptIndex = 4;
+                }
+            },
+            { 
+                time: 30, 
+                action: async function() {
+                    // Hide previous checkbox if still visible
+                    if (document.getElementById('vape-check').checked) {
+                        vapeCheckbox.style.display = 'none';
+                    }
+                    // Show passport checkbox
+                    passportCheckbox.style.display = 'block';
+                    // Reset checkbox in case video replays
+                    document.getElementById('passport-check').checked = false;
+                    
+                    await addTerminalLine(script[2].command, true);
+                    await addTerminalLine(script[2].response, false);
+                    terminal.innerHTML += '<br>';
+                    currentScriptIndex = 5;
+                }
+            },
+            { 
+                time: 31, 
+                action: async function() {
+                    // Hide previous checkbox if still visible
+                    if (document.getElementById('passport-check').checked) {
+                        passportCheckbox.style.display = 'none';
+                    }
+                    // Show wallet checkbox
+                    walletCheckbox.style.display = 'block';
+                    // Reset checkbox in case video replays
+                    document.getElementById('wallet-check').checked = false;
+                    
+                    await addTerminalLine(script[4].command, true);
+                    await addTerminalLine(script[4].response, false);
+                    terminal.innerHTML += '<br>';
+                    currentScriptIndex = 6;
+                }
+            },
+            { 
+                time: 33, 
+                action: async function() {
+                    await addTerminalLine(script[5].command, true);
+                    await addTerminalLine(script[5].response, false);
+                    terminal.innerHTML += '<br>';
+                    currentScriptIndex = 7;
+                }
+            },
+            { 
+                time: 36, 
+                action: async function() {
+                    // Hide previous checkbox if still visible
+                    if (document.getElementById('wallet-check').checked) {
+                        walletCheckbox.style.display = 'none';
+                    }
+                    // Show jacket checkbox
+                    jacketCheckbox.style.display = 'block';
+                    // Reset checkbox in case video replays
+                    document.getElementById('jacket-check').checked = false;
+                    
+                    await addTerminalLine(script[6].command, true);
+                    await addTerminalLine(script[6].response, false);
+                    terminal.innerHTML += '<br>';
+                    currentScriptIndex = 8;
+                }
+            },
+            { 
+                time: 40, 
+                action: async function() {
+                    // Hide previous checkbox if still visible
+                    if (document.getElementById('jacket-check').checked) {
+                        jacketCheckbox.style.display = 'none';
+                    }
+                    // Show earphones checkbox
+                    earphonesCheckbox.style.display = 'block';
+                    // Reset checkbox in case video replays
+                    document.getElementById('earphones-check').checked = false;
+                    
+                    await addTerminalLine(script[7].command, true);
+                    await addTerminalLine(script[7].response, false);
+                    terminal.innerHTML += '<br>';
+                    currentScriptIndex = 9;
+                }
+            },
+            { 
+                time: 44, 
+                action: function() {
+                    // Hide earphones checkbox after a few seconds if not checked
+                    if (!document.getElementById('earphones-check').checked) {
+                        earphonesCheckbox.style.display = 'none';
+                    }
+                }
+            },
+            { 
+                time: 52, 
+                action: async function() {
+                    await addTerminalLine(script[8].command, true);
+                    await addTerminalLine(script[8].response, false);
+                    terminal.innerHTML += '<br>';
+                    currentScriptIndex = 10;
+                    
+                    // Create a dropdown for the fire escape decision
+                    const dropdownDiv = document.createElement('div');
+                    dropdownDiv.id = 'escape-choice';
+                    dropdownDiv.className = 'interactive-checkbox'; // Reuse the class for styling
+                    dropdownDiv.style.display = 'block';
+                    dropdownDiv.style.left = '50%';
+                    dropdownDiv.style.top = '70%';
+                    
+                    // Create the dropdown HTML
+                    dropdownDiv.innerHTML = `
+                        <label for="escape-select">Use the fire escape?</label>
+                        <select id="escape-select">
+                            <option value="">Choose...</option>
+                            <option value="yes">Yes</option>
+                            <option value="no">No</option>
+                        </select>
+                    `;
+                    
+                    // Add to the document
+                    document.body.appendChild(dropdownDiv);
+                    
+                    // Add listener
+                    const selectElement = document.getElementById('escape-select');
+                    if (selectElement) {
+                        selectElement.addEventListener('change', function() {
+                            if (this.value) {
+                                const disappearTime = checkboxDisappearTimes['escape-select'] || 1000;
+                                setTimeout(() => {
+                                    dropdownDiv.style.display = 'none';
+                                }, disappearTime);
+                            }
+                        });
+                    }
+                }
+            },
+            { 
+                time: 70, 
+                action: function() {
+                    // Create toggle switch for the lamp
+                    const lampToggle = createToggleSwitchAtPosition(
+                        'lamp-toggle', 
+                        'Lamp', 
+                        '30%', 
+                        '40%', 
+                        true // Initially ON
+                    );
+                    
+                    // Add listener
+                    const toggleElement = document.getElementById('lamp-toggle-toggle');
+                    if (toggleElement) {
+                        toggleElement.addEventListener('change', function() {
+                            // If turned off, hide after a delay
+                            if (!this.checked) {
+                                const disappearTime = checkboxDisappearTimes['lamp-toggle'] || 1000;
+                                setTimeout(() => {
+                                    lampToggle.style.display = 'none';
+                                }, disappearTime);
+                            }
+                        });
+                    }
+                }
+            },
+            { 
+                time: 75, 
+                action: function() {
+                    // Create toggle switch for kitchen light
+                    const kitchenToggle = createToggleSwitchAtPosition(
+                        'kitchen-toggle', 
+                        'Kitchen Light', 
+                        '70%', 
+                        '40%', 
+                        true // Initially ON
+                    );
+                    
+                    // Add listener
+                    const toggleElement = document.getElementById('kitchen-toggle-toggle');
+                    if (toggleElement) {
+                        toggleElement.addEventListener('change', function() {
+                            // If turned off, hide after a delay and show final choice
+                            if (!this.checked) {
+                                const disappearTime = checkboxDisappearTimes['kitchen-toggle'] || 1000;
+                                setTimeout(() => {
+                                    kitchenToggle.style.display = 'none';
+                                    
+                                    // Now show the final decision dropdown
+                                    const finalChoice = createDropdownAtPosition(
+                                        'final-choice', 
+                                        'give up?', 
+                                        [
+                                            { value: 'yes', label: 'Yes' },
+                                            { value: 'no', label: 'No' },
+                                        ],
+                                        '50%', 
+                                        '50%'
+                                    );
+                                    
+                                    // Add listener
+                                    const selectElement = document.getElementById('final-choice-select');
+                                    if (selectElement) {
+                                        selectElement.addEventListener('change', function() {
+                                            if (this.value) {
+                                                const disappearTime = checkboxDisappearTimes['final-choice-select'] || 1000;
+                                                setTimeout(() => {
+                                                    finalChoice.style.display = 'none';
+                                                }, disappearTime);
+                                            }
+                                        });
+                                    }
+                                }, disappearTime);
+                            }
+                        });
+                    }
+                }
+            },
+            { 
+                time: 80, 
+                action: async function() {
+                    await addTerminalLine(script[9].command, true);
+                    await addTerminalLine(script[9].response, false);
+                    terminal.innerHTML += '<br>';
+                }
+            }
+            // Add more time events as needed
+        ];
+        
+        // Sort time events by time
+        timeEvents.sort((a, b) => a.time - b.time);
+        
+        // Track the current event index
+        let currentEventIndex = 0;
+        
+        // Update function that runs when video time updates
+        function updateTimeBasedElements() {
+            const currentTime = video.currentTime;
+            
+            // Update time display (for development purposes)
+            const minutes = Math.floor(currentTime / 60);
+            const seconds = Math.floor(currentTime % 60).toString().padStart(2, '0');
+            timeDisplay.innerText = `${minutes}:${seconds}`;
+            
+            // Check if we need to trigger any time-based events
+            while (currentEventIndex < timeEvents.length && 
+                  currentTime >= timeEvents[currentEventIndex].time) {
+                // Execute the action for this time event
+                timeEvents[currentEventIndex].action();
+                // Move to the next event
+                currentEventIndex++;
+            }
+            
+            // If video is reset, also reset the event index
+            if (currentTime < 0.1 && currentEventIndex > 0) {
+                currentEventIndex = 0;
+                currentScriptIndex = 0;
+                terminal.innerHTML = ''; // Clear terminal
+                timeEvents[0].action(); // Execute the first event (0 seconds)
+            }
+        }
+        
+        // Add time update listener to video
+        video.addEventListener("timeupdate", updateTimeBasedElements);
+        
+        // Initialize the first time event (0 seconds)
+        timeEvents[0].action();
+    </script>
+</body>
+</html>
